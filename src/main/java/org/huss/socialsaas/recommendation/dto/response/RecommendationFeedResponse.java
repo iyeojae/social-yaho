@@ -13,4 +13,3 @@ public record RecommendationFeedResponse(
         List<RecommendationItemResponse> items
 ) {
 }
-

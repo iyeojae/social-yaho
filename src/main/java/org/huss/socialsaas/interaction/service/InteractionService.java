@@ -67,4 +67,3 @@ public class InteractionService {
         return value.trim();
     }
 }
-

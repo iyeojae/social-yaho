@@ -13,4 +13,3 @@ public record ApiResponse<T>(
         return new ApiResponse<>(true, message, data, Instant.now());
     }
 }
-

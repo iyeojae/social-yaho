@@ -23,4 +23,3 @@ public abstract class BaseTimeEntity {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 }
-

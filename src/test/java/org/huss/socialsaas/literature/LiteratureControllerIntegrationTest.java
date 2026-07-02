@@ -103,7 +103,7 @@ class LiteratureControllerIntegrationTest {
 
         bookAiTagRepository.save(BookAiTag.create(
                 savedMetadataBook,
-                "이 작품은 한국 고전소설의 대표작으로, 한국 서사문학의 전통과 영웅 서사의 매력을 해외 독자에게 소개하기에 적합한 작품입니다.",
+                "This work is one of the representative classics of Korean fiction, offering international readers an accessible introduction to Korean narrative tradition and heroic storytelling.",
                 null,
                 null,
                 Instant.now()
@@ -143,7 +143,7 @@ class LiteratureControllerIntegrationTest {
         assertEquals(xlsxBookId, detail.id());
         assertEquals("Hong Gil Dong", detail.title());
         assertEquals("Original title: 홍길동전 | Translated language: German(Deutsch)", detail.description());
-        assertEquals("이 작품은 한국 고전소설의 대표작으로, 한국 서사문학의 전통과 영웅 서사의 매력을 해외 독자에게 소개하기에 적합한 작품입니다.", detail.displayDescription());
+        assertEquals("This work is one of the representative classics of Korean fiction, offering international readers an accessible introduction to Korean narrative tradition and heroic storytelling.", detail.displayDescription());
         assertEquals(detail.displayDescription(), detail.aiSummary());
         assertEquals("AI_GENERATED_SUMMARY", detail.descriptionSource());
         assertEquals("XLSX_METADATA", detail.sourceType());

@@ -9,4 +9,3 @@ public enum InteractionType {
     BOOKMARK,
     UNBOOKMARK
 }
-

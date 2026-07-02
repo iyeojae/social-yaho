@@ -18,4 +18,3 @@ public record CreateUserRequest(
         String nickname
 ) {
 }
-

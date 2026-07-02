@@ -9,4 +9,3 @@ public interface GenreRepository extends JpaRepository<Genre, Long> {
 
     Optional<Genre> findByCodeIgnoreCase(String code);
 }
-

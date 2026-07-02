@@ -24,4 +24,3 @@ public interface UserInteractionEventRepository extends JpaRepository<UserIntera
 	List<Long> findRecentDistinctBookIds(@Param("userId") Long userId, @Param("limit") int limit);
 }
 
-

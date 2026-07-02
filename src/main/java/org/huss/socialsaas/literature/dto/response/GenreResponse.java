@@ -13,4 +13,3 @@ public record GenreResponse(
         return new GenreResponse(genre.getId(), genre.getCode(), genre.getName(), genre.getDescription());
     }
 }
-

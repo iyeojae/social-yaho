@@ -9,4 +9,3 @@ public record RecommendationRefreshRequest(
         Integer limit
 ) {
 }
-

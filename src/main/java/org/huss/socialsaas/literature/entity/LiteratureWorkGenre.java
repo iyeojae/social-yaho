@@ -41,4 +41,3 @@ public class LiteratureWorkGenre extends BaseTimeEntity {
         this.genre = genre;
     }
 }
-

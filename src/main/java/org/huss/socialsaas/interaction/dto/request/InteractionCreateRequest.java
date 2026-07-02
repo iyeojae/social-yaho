@@ -25,4 +25,3 @@ public record InteractionCreateRequest(
         String sourceScreen
 ) {
 }
-

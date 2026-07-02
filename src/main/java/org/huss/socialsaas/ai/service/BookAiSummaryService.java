@@ -22,11 +22,13 @@ public class BookAiSummaryService {
 
     private static final String SYSTEM_PROMPT = """
             You are a Korean literature metadata assistant.
-            Write a concise Korean book introduction in 2-4 sentences.
+            This website is for international users, so write the book introduction in English only.
+            Write a concise English book introduction in 2-4 sentences.
             Use only the metadata provided by the user.
             Do not invent plot details, awards, historical facts, or publication facts that are not clearly inferable from the metadata.
             If metadata is limited, describe the likely literary context conservatively and explicitly avoid overclaiming.
-            Output plain Korean text only.
+            You may mention original titles or author names in their source language inside parentheses when helpful, but the explanation itself must remain English.
+            Output plain English text only.
             """;
 
     private final BookAiTagRepository bookAiTagRepository;
@@ -51,7 +53,7 @@ public class BookAiSummaryService {
         Optional<BookAiTag> existing = bookAiTagRepository.findByLiteratureWorkId(literatureWork.getId());
         if (existing.isPresent()) {
             String savedSummary = normalize(existing.get().getLlmSummary());
-            if (savedSummary != null) {
+            if (savedSummary != null && shouldReuseSummary(savedSummary)) {
                 return Optional.of(savedSummary);
             }
         }
@@ -117,24 +119,24 @@ public class BookAiSummaryService {
 
     private String buildUserPrompt(LiteratureWork literatureWork) {
         return """
-                아래 도서 메타데이터만 참고해서 한국어 책 소개를 작성해주세요.
-                
-                - 제목: %s
-                - 원제: %s
-                - 저자: %s
-                - 저자(한글): %s
-                - 번역 언어: %s
-                - 국가: %s
-                - 출판사: %s
-                - 출간 연도: %s
-                - 장르: %s
-                - 기존 설명: %s
-                
-                요구사항:
-                1) 2~4문장으로 간결하게 작성
-                2) 메타데이터에서 직접 알 수 없는 줄거리/수상/시대적 사실은 단정하지 말 것
-                3) 작품 성격, 번역/문학적 맥락, 독자 포인트 위주로 소개
-                4) 출력은 순수 한국어 문장만 반환
+                Please write an English book introduction using only the metadata below.
+
+                - Title: %s
+                - Original Title: %s
+                - Author: %s
+                - Author (Korean): %s
+                - Translated Language: %s
+                - Country: %s
+                - Publisher: %s
+                - Published Year: %s
+                - Genres: %s
+                - Existing Description: %s
+
+                Requirements:
+                1) Keep it concise in 2-4 sentences.
+                2) Do not invent plot, awards, or historical facts that are not directly inferable from the metadata.
+                3) Focus on literary context, translation context, and why an international reader might care.
+                4) Output plain English text only.
                 """.formatted(
                 safe(literatureWork.getTitle()),
                 safe(literatureWork.getOriginalTitle()),
@@ -154,7 +156,7 @@ public class BookAiSummaryService {
 
     private String safe(String value) {
         String normalized = normalize(value);
-        return normalized == null ? "정보 없음" : normalized;
+        return normalized == null ? "Not available" : normalized;
     }
 
     private String normalize(String value) {
@@ -163,6 +165,14 @@ public class BookAiSummaryService {
         }
         String normalized = value.trim();
         return normalized.isBlank() ? null : normalized;
+    }
+
+    private boolean shouldReuseSummary(String savedSummary) {
+        return !containsHangul(savedSummary);
+    }
+
+    private boolean containsHangul(String value) {
+        return value != null && value.matches(".*[가-힣].*");
     }
 
     private record ChatCompletionRequest(

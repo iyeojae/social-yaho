@@ -14,4 +14,3 @@ public record MembershipResponse(
         return new MembershipResponse(user.getId(), user.isMembershipActive(), user.getUpdatedAt());
     }
 }
-

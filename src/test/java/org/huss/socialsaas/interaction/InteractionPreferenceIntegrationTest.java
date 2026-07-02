@@ -112,4 +112,3 @@ class InteractionPreferenceIntegrationTest {
         assertEquals(4L, preferences.get(0).getTotalScore());
     }
 }
-

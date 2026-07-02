@@ -17,4 +17,3 @@ public interface UserGenrePreferenceRepository extends JpaRepository<UserGenrePr
     List<UserGenrePreference> findTop5ByUserIdOrderByTotalScoreDescUpdatedAtDesc(Long userId);
 }
 
-

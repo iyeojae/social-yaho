@@ -67,4 +67,3 @@ public class User extends BaseTimeEntity {
         this.membershipActive = membershipActive;
     }
 }
-

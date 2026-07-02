@@ -72,4 +72,3 @@ public class UserGenrePreference extends BaseTimeEntity {
         this.totalScore = this.explicitScore + this.implicitScore;
     }
 }
-

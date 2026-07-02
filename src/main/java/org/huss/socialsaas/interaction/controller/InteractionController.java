@@ -33,4 +33,3 @@ public class InteractionController {
                 .body(ApiResponse.success("상호작용 이벤트를 저장했습니다.", response));
     }
 }
-

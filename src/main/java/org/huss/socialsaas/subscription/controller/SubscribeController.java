@@ -31,4 +31,3 @@ public class SubscribeController {
         return ResponseEntity.ok(ApiResponse.success("멤버십 상태를 변경했습니다.", response));
     }
 }
-

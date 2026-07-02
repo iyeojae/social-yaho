@@ -22,4 +22,3 @@ public record ErrorResponse(
     public record FieldValidationError(String field, String reason) {
     }
 }
-
