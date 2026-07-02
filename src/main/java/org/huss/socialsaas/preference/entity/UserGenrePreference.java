@@ -67,8 +67,27 @@ public class UserGenrePreference extends BaseTimeEntity {
                 .build();
     }
 
+    public static UserGenrePreference create(User user, Genre genre, long explicitScore, long implicitScore) {
+        return UserGenrePreference.builder()
+                .user(user)
+                .genre(genre)
+                .explicitScore(explicitScore)
+                .implicitScore(implicitScore)
+                .totalScore(explicitScore + implicitScore)
+                .build();
+    }
+
+    public void addExplicitScore(long score) {
+        this.explicitScore += score;
+        recalculateTotalScore();
+    }
+
     public void addImplicitScore(long score) {
         this.implicitScore += score;
+        recalculateTotalScore();
+    }
+
+    public void recalculateTotalScore() {
         this.totalScore = this.explicitScore + this.implicitScore;
     }
 }

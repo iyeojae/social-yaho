@@ -27,6 +27,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.time.Instant;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -73,11 +74,6 @@ class RecommendationServiceIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        UserProfileResponse user = userService.createUser(
-                new CreateUserRequest("reader3@example.com", "password123", "reader3")
-        );
-        userId = user.id();
-
         Genre classic = genreRepository.save(Genre.builder()
                 .code("CLASSIC")
                 .name("고전문학")
@@ -88,6 +84,11 @@ class RecommendationServiceIntegrationTest {
                 .name("시")
                 .description("시와 운문")
                 .build());
+
+        UserProfileResponse user = userService.createUser(
+                new CreateUserRequest("reader3@example.com", "password123", "reader3", List.of("CLASSIC"))
+        );
+        userId = user.id();
 
         LiteratureWork recentClassicBook = LiteratureWork.create(
                 "운수 좋은 날",
@@ -172,6 +173,21 @@ class RecommendationServiceIntegrationTest {
         RecommendationFeedResponse third = recommendationService.getFeed(userId, 10);
         assertFalse(third.cached());
         assertEquals(1, third.items().size());
+    }
+
+    @Test
+    void onboardingSurveySeedsInitialGenrePreferenceBeforeMoreReadingDataAccumulates() {
+        List<org.huss.socialsaas.preference.entity.UserGenrePreference> preferences = userGenrePreferenceRepository
+                .findTop5ByUserIdOrderByTotalScoreDescUpdatedAtDesc(userId);
+
+        assertFalse(preferences.isEmpty());
+        assertEquals("CLASSIC", preferences.get(0).getGenre().getCode());
+        assertEquals(10L, preferences.get(0).getExplicitScore());
+        assertEquals(4L, preferences.get(0).getImplicitScore());
+        assertEquals(14L, preferences.get(0).getTotalScore());
+
+        RecommendationFeedResponse feed = recommendationService.getFeed(userId, 10);
+        assertEquals(recommendedClassicBookId, feed.items().get(0).bookId());
     }
 
     @Test

@@ -62,7 +62,7 @@ class InteractionPreferenceIntegrationTest {
     @BeforeEach
     void setUp() {
         UserProfileResponse user = userService.createUser(
-                new CreateUserRequest("reader2@example.com", "password123", "reader2")
+                new CreateUserRequest("reader2@example.com", "password123", "reader2", null)
         );
         userId = user.id();
 

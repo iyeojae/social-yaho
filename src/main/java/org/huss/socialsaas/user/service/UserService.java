@@ -3,6 +3,7 @@ package org.huss.socialsaas.user.service;
 import lombok.RequiredArgsConstructor;
 import org.huss.socialsaas.global.exception.BusinessException;
 import org.huss.socialsaas.global.exception.ErrorCode;
+import org.huss.socialsaas.preference.service.UserPreferenceService;
 import org.huss.socialsaas.user.dto.request.CreateUserRequest;
 import org.huss.socialsaas.user.dto.request.UpdateUserRequest;
 import org.huss.socialsaas.user.dto.response.UserProfileResponse;
@@ -19,6 +20,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final UserPreferenceService userPreferenceService;
 
     @Transactional
     public UserProfileResponse createUser(CreateUserRequest request) {
@@ -31,6 +33,8 @@ public class UserService {
                 passwordEncoder.encode(request.password()),
                 request.nickname()
         ));
+
+        userPreferenceService.initializePreferencesFromSurvey(savedUser, request.preferredGenreCodes());
 
         return UserProfileResponse.from(savedUser);
     }

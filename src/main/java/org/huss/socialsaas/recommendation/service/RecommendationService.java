@@ -157,9 +157,21 @@ public class RecommendationService {
 
         Map<Long, Long> preferenceScoreByGenreId = topPreferences.stream()
                 .collect(Collectors.toMap(preference -> preference.getGenre().getId(), UserGenrePreference::getTotalScore, Long::max, LinkedHashMap::new));
+        Map<Long, Long> explicitScoreByGenreId = topPreferences.stream()
+                .collect(Collectors.toMap(preference -> preference.getGenre().getId(), UserGenrePreference::getExplicitScore, Long::max, LinkedHashMap::new));
+        Map<Long, Long> implicitScoreByGenreId = topPreferences.stream()
+                .collect(Collectors.toMap(preference -> preference.getGenre().getId(), UserGenrePreference::getImplicitScore, Long::max, LinkedHashMap::new));
 
         List<ScoredCandidate> scoredCandidates = candidates.stream()
-                .map(candidate -> scoreCandidate(candidate, preferenceScoreByGenreId, preferredGenreCodes, recentGenreCodes, recentBookIds))
+                .map(candidate -> scoreCandidate(
+                        candidate,
+                        preferenceScoreByGenreId,
+                        explicitScoreByGenreId,
+                        implicitScoreByGenreId,
+                        preferredGenreCodes,
+                        recentGenreCodes,
+                        recentBookIds
+                ))
                 .sorted(Comparator.comparingLong(ScoredCandidate::score).reversed()
                         .thenComparing(candidate -> candidate.work().getId(), Comparator.reverseOrder()))
                 .limit(limit)
@@ -312,6 +324,8 @@ public class RecommendationService {
     private ScoredCandidate scoreCandidate(
             LiteratureWork work,
             Map<Long, Long> preferenceScoreByGenreId,
+            Map<Long, Long> explicitScoreByGenreId,
+            Map<Long, Long> implicitScoreByGenreId,
             Set<String> preferredGenreCodes,
             Set<String> recentGenreCodes,
             List<Long> recentBookIds
@@ -325,10 +339,22 @@ public class RecommendationService {
                 .map(LiteratureWorkGenre::getGenre)
                 .mapToLong(genre -> preferenceScoreByGenreId.getOrDefault(genre.getId(), 0L))
                 .sum();
+        long explicitScore = work.getGenreMappingsView().stream()
+                .map(LiteratureWorkGenre::getGenre)
+                .mapToLong(genre -> explicitScoreByGenreId.getOrDefault(genre.getId(), 0L))
+                .sum();
+        long implicitScore = work.getGenreMappingsView().stream()
+                .map(LiteratureWorkGenre::getGenre)
+                .mapToLong(genre -> implicitScoreByGenreId.getOrDefault(genre.getId(), 0L))
+                .sum();
 
         long matchedPreferredCount = intersection(workGenres, preferredGenreCodes).size();
         long matchedRecentCount = intersection(workGenres, recentGenreCodes).size();
-        long score = (matchedPreferredCount * 30L) + (matchedRecentCount * 25L) + Math.min(preferredScore, 30L);
+        long score = (matchedPreferredCount * 30L)
+                + (matchedRecentCount * 25L)
+                + Math.min(preferredScore, 30L)
+                + Math.min(explicitScore, 20L)
+                + Math.min(implicitScore, 25L);
 
         if (recentBookIds.contains(work.getId())) {
             score -= 1000L;

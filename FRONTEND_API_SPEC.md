@@ -95,7 +95,8 @@ X-USER-ID: {userId}
 {
   "email": "user@example.com",
   "password": "password1234",
-  "nickname": "miyo"
+  "nickname": "miyo",
+  "preferredGenreCodes": ["CLASSIC", "POETRY"]
 }
 ```
 
@@ -103,6 +104,7 @@ X-USER-ID: {userId}
 - `email`: 필수, 이메일 형식
 - `password`: 필수, 8~100자
 - `nickname`: 필수, 최대 100자
+- `preferredGenreCodes`: optional, 최대 5개
 
 #### Response (`201 Created`)
 ```json
@@ -121,6 +123,11 @@ X-USER-ID: {userId}
   "timestamp": "2026-07-02T04:10:54.900Z"
 }
 ```
+
+#### 프론트 참고
+- 회원가입 시 간단한 설문(선호 장르 선택)을 같이 보내면 초기 추천 품질이 좋아집니다.
+- `preferredGenreCodes`는 `GET /api/v1/genres`로 받은 `code` 값을 사용하면 됩니다.
+- 설문 점수는 초기값일 뿐이고, 이후 `POST /api/v1/interactions` 데이터가 계속 누적되면서 추천이 보정됩니다.
 
 ---
 
