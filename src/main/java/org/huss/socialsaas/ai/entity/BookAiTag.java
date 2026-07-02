@@ -62,5 +62,11 @@ public class BookAiTag extends BaseTimeEntity {
                 .generatedAt(generatedAt)
                 .build();
     }
+
+    public void updateLlmSummary(String llmSummary, Instant generatedAt) {
+        this.llmSummary = llmSummary;
+        this.generatedAt = generatedAt;
+    }
 }
+
 

@@ -3,12 +3,16 @@ package org.huss.socialsaas.recommendation.service;
 import lombok.RequiredArgsConstructor;
 import org.huss.socialsaas.ai.entity.BookAiTag;
 import org.huss.socialsaas.ai.repository.BookAiTagRepository;
+import org.huss.socialsaas.global.exception.BusinessException;
+import org.huss.socialsaas.global.exception.ErrorCode;
 import org.huss.socialsaas.interaction.repository.UserInteractionEventRepository;
+import org.huss.socialsaas.literature.entity.Genre;
 import org.huss.socialsaas.literature.entity.LiteratureWork;
 import org.huss.socialsaas.literature.entity.LiteratureWorkGenre;
 import org.huss.socialsaas.literature.repository.LiteratureWorkRepository;
 import org.huss.socialsaas.preference.entity.UserGenrePreference;
 import org.huss.socialsaas.preference.repository.UserGenrePreferenceRepository;
+import org.huss.socialsaas.recommendation.dto.response.RecommendationReasonResponse;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,6 +38,7 @@ public class RecommendationService {
     private static final int DEFAULT_LIMIT = 10;
     private static final int MAX_LIMIT = 50;
     private static final int RECENT_BOOK_LIMIT = 5;
+    private static final int REASON_RECENT_BOOK_LIMIT = 3;
     private static final String REASON_TYPE = "PREGENERATED_BOOK_AI_TAG";
 
     private final RecommendationCacheService recommendationCacheService;
@@ -56,6 +61,75 @@ public class RecommendationService {
         int normalizedLimit = normalizeLimit(limit);
         recommendationCacheService.evictUserFeed(userId);
         return generateAndCache(userId, normalizedLimit, false);
+    }
+
+    public RecommendationReasonResponse getRecommendationReason(Long userId, Long bookId) {
+        LiteratureWork targetBook = literatureWorkRepository.findDetailById(bookId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BOOK_NOT_FOUND));
+
+        List<Long> recentBookIds = userInteractionEventRepository.findRecentDistinctBookIds(userId, RECENT_BOOK_LIMIT)
+                .stream()
+                .filter(id -> !id.equals(bookId))
+                .toList();
+        List<LiteratureWork> recentBooks = loadOrderedActiveWorks(recentBookIds);
+        List<UserGenrePreference> topPreferences = userGenrePreferenceRepository.findTop5ByUserIdOrderByTotalScoreDescUpdatedAtDesc(userId);
+        Optional<BookAiTag> aiTag = bookAiTagRepository.findByLiteratureWorkId(bookId);
+
+        Set<String> targetGenreCodes = extractGenreCodes(List.of(targetBook));
+        Set<String> recentGenreCodes = extractGenreCodes(recentBooks);
+        Set<String> preferredGenreCodes = topPreferences.stream()
+                .map(preference -> preference.getGenre().getCode().toLowerCase(Locale.ROOT))
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        List<RecommendationReasonResponse.MatchedGenre> matchedGenres = targetBook.getGenreMappingsView().stream()
+                .map(LiteratureWorkGenre::getGenre)
+                .filter(genre -> recentGenreCodes.contains(genre.getCode().toLowerCase(Locale.ROOT))
+                        || preferredGenreCodes.contains(genre.getCode().toLowerCase(Locale.ROOT)))
+                .sorted(Comparator.comparing(Genre::getCode, String.CASE_INSENSITIVE_ORDER))
+                .map(genre -> new RecommendationReasonResponse.MatchedGenre(genre.getCode(), genre.getName()))
+                .toList();
+
+        List<RecommendationReasonResponse.RecentReadBook> matchedRecentReadBooks = recentBooks.stream()
+                .map(book -> toRecentReadBook(book, targetGenreCodes))
+                .filter(book -> !book.matchedGenreCodes().isEmpty())
+                .limit(REASON_RECENT_BOOK_LIMIT)
+                .toList();
+
+        List<RecommendationReasonResponse.RecentReadBook> recentReadBooks = matchedRecentReadBooks.isEmpty()
+                ? recentBooks.stream()
+                .limit(REASON_RECENT_BOOK_LIMIT)
+                .map(book -> toRecentReadBook(book, targetGenreCodes))
+                .toList()
+                : matchedRecentReadBooks;
+
+        String aiReasonText = aiTag.map(BookAiTag::getRecommendationReason)
+                .map(String::trim)
+                .filter(text -> !text.isBlank())
+                .orElse(null);
+        List<String> keywordTags = aiTag.map(BookAiTag::getKeywordTags)
+                .map(this::splitTags)
+                .orElse(List.of());
+
+        String personalizedReasonText = buildPersonalizedReasonText(
+                targetBook,
+                recentBooks,
+                recentReadBooks,
+                matchedGenres,
+                aiReasonText
+        );
+
+        return new RecommendationReasonResponse(
+                userId,
+                targetBook.getId(),
+                targetBook.getTitle(),
+                personalizedReasonText,
+                aiReasonText,
+                keywordTags,
+                matchedGenres,
+                recentReadBooks,
+                REASON_TYPE,
+                Instant.now()
+        );
     }
 
     private org.huss.socialsaas.recommendation.dto.response.RecommendationFeedResponse generateAndCache(Long userId, int limit, boolean cached) {
@@ -152,6 +226,89 @@ public class RecommendationService {
         );
     }
 
+    private List<LiteratureWork> loadOrderedActiveWorks(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+
+        Map<Long, Integer> order = new LinkedHashMap<>();
+        for (int index = 0; index < ids.size(); index++) {
+            order.put(ids.get(index), index);
+        }
+
+        return literatureWorkRepository.findActiveWorksByIds(ids).stream()
+                .sorted(Comparator.comparingInt(work -> order.getOrDefault(work.getId(), Integer.MAX_VALUE)))
+                .toList();
+    }
+
+    private RecommendationReasonResponse.RecentReadBook toRecentReadBook(LiteratureWork book, Set<String> targetGenreCodes) {
+        List<String> matchedGenreCodes = book.getGenreMappingsView().stream()
+                .map(LiteratureWorkGenre::getGenre)
+                .map(Genre::getCode)
+                .filter(code -> targetGenreCodes.contains(code.toLowerCase(Locale.ROOT)))
+                .sorted(String::compareToIgnoreCase)
+                .toList();
+
+        return new RecommendationReasonResponse.RecentReadBook(
+                book.getId(),
+                book.getTitle(),
+                book.getAuthorName(),
+                matchedGenreCodes
+        );
+    }
+
+    private String buildPersonalizedReasonText(
+            LiteratureWork targetBook,
+            List<LiteratureWork> recentBooks,
+            List<RecommendationReasonResponse.RecentReadBook> recentReadBooks,
+            List<RecommendationReasonResponse.MatchedGenre> matchedGenres,
+            String aiReasonText
+    ) {
+        String targetTitle = quoteTitle(targetBook.getTitle());
+
+        String primaryReason;
+        if (!recentReadBooks.isEmpty() && recentReadBooks.stream().anyMatch(book -> !book.matchedGenreCodes().isEmpty())) {
+            primaryReason = "최근 읽으신 " + formatBookTitles(recentReadBooks) + "과(와) 비슷한 관심 흐름이 보여 "
+                    + targetTitle + "을(를) 추천드려요.";
+            if (!matchedGenres.isEmpty()) {
+                primaryReason += " 특히 " + formatGenreNames(matchedGenres) + " 장르 취향과 잘 맞습니다.";
+            }
+        } else if (!matchedGenres.isEmpty()) {
+            primaryReason = "최근 활동을 보면 " + formatGenreNames(matchedGenres) + " 장르 선호가 높아 "
+                    + targetTitle + "을(를) 추천드려요.";
+        } else if (!recentBooks.isEmpty()) {
+            primaryReason = "최근 읽으신 " + formatBookTitles(recentReadBooks) + "을(를) 바탕으로 현재 취향과 가까운 작품으로 "
+                    + targetTitle + "을(를) 추천드려요.";
+        } else {
+            primaryReason = targetTitle + "은(는) 현재 취향 데이터를 바탕으로 추천된 작품입니다.";
+        }
+
+        if (aiReasonText == null || aiReasonText.isBlank()) {
+            return primaryReason;
+        }
+        return primaryReason + " 추가로, " + aiReasonText;
+    }
+
+    private String formatBookTitles(List<RecommendationReasonResponse.RecentReadBook> books) {
+        return books.stream()
+                .map(RecommendationReasonResponse.RecentReadBook::title)
+                .map(this::quoteTitle)
+                .toList()
+                .stream()
+                .collect(Collectors.joining(", "));
+    }
+
+    private String formatGenreNames(List<RecommendationReasonResponse.MatchedGenre> genres) {
+        return genres.stream()
+                .map(RecommendationReasonResponse.MatchedGenre::name)
+                .filter(name -> name != null && !name.isBlank())
+                .collect(Collectors.joining(", "));
+    }
+
+    private String quoteTitle(String title) {
+        return "'" + title + "'";
+    }
+
     private ScoredCandidate scoreCandidate(
             LiteratureWork work,
             Map<Long, Long> preferenceScoreByGenreId,
@@ -229,4 +386,5 @@ public class RecommendationService {
     private record ScoredCandidate(LiteratureWork work, long score, Set<String> matchedGenres) {
     }
 }
+
 

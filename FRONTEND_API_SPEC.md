@@ -271,6 +271,17 @@ GET /api/v1/books?keyword=Hong&genreCode=KDC_LITERATURE_KOREAN_LITERATURE
 #### Path Params
 - `bookId`: 도서 ID
 
+#### 동작 방식
+- `MD_FULLTEXT` 또는 `contentAvailable=true` 도서: 기존 설명 그대로 반환
+- `XLSX_METADATA` + `contentAvailable=false` 도서: 서버가 자동으로 AI 요약 보강을 시도
+  - 이미 생성된 AI 요약이 있으면 재사용
+  - 없고 OpenAI 설정이 활성화되어 있으면 생성 후 저장
+
+#### Example
+```http
+GET /api/v1/books/15054
+```
+
 #### Response (`200 OK`)
 ```json
 {
@@ -281,6 +292,9 @@ GET /api/v1/books?keyword=Hong&genreCode=KDC_LITERATURE_KOREAN_LITERATURE
     "title": "Hong Gil Dong",
     "authorName": "Heo Gyun",
     "description": "Original title: 홍길동전 | Translated language: German(Deutsch) | Classification: ...",
+    "displayDescription": "이 작품은 한국 고전소설을 대표하는 텍스트로, 번역 독자에게도 한국 서사문학의 전통을 소개하는 입문서 역할을 합니다.",
+    "aiSummary": "이 작품은 한국 고전소설을 대표하는 텍스트로, 번역 독자에게도 한국 서사문학의 전통을 소개하는 입문서 역할을 합니다.",
+    "descriptionSource": "AI_GENERATED_SUMMARY",
     "originalTitle": "홍길동전",
     "country": "KOREA",
     "translatedLanguage": "German(Deutsch)",
@@ -318,6 +332,17 @@ GET /api/v1/books?keyword=Hong&genreCode=KDC_LITERATURE_KOREAN_LITERATURE
 - `contentAvailable`
   - `true`: 실제 원문/콘텐츠 있음
   - `false`: 메타데이터만 있음
+- `displayDescription`
+  - 프론트에서 사용자에게 우선 노출할 추천 설명 필드
+  - 메타데이터 도서면 AI 요약을 우선 반영
+  - 그 외에는 기존 `description`
+- `aiSummary`
+  - 실제 AI가 생성한 요약 텍스트
+  - 없으면 `null`
+- `descriptionSource`
+  - `AI_GENERATED_SUMMARY`
+  - `IMPORTED_METADATA_DESCRIPTION`
+  - `CONTENT_BASED_DESCRIPTION`
 
 ---
 
@@ -525,6 +550,65 @@ X-USER-ID: 1
 
 ---
 
+### 6-3. 특정 책 추천 이유 조회
+`GET /api/v1/recommendations/books/{bookId}/reason`
+
+#### Headers
+```http
+X-USER-ID: 1
+```
+
+#### Path Params
+- `bookId`: 추천 이유를 조회할 도서 ID
+
+#### 설명
+이 API는 아래 정보를 조합해서 추천 이유를 만듭니다.
+- 사용자의 최근 읽은 책 최대 5권
+- 해당 책과 겹치는 장르
+- 누적된 사용자 장르 선호도
+- 사전 생성된 AI 추천 문구(`BookAiTag.recommendationReason`)
+
+#### Response (`200 OK`)
+```json
+{
+  "success": true,
+  "message": "추천 이유를 조회했습니다.",
+  "data": {
+    "userId": 1,
+    "bookId": 15054,
+    "bookTitle": "Hong Gil Dong",
+    "personalizedReasonText": "최근 읽으신 '운수 좋은 날'과(와) 비슷한 관심 흐름이 보여 'Hong Gil Dong'을(를) 추천드려요. 특히 고전문학 장르 취향과 잘 맞습니다. 추가로, 최근 읽은 고전문학과 결이 비슷해 추천합니다.",
+    "aiReasonText": "최근 읽은 고전문학과 결이 비슷해 추천합니다.",
+    "keywordTags": ["classic", "short-story", "k-literature"],
+    "matchedGenres": [
+      {
+        "code": "CLASSIC",
+        "name": "고전문학"
+      }
+    ],
+    "recentReadBooks": [
+      {
+        "bookId": 11,
+        "title": "운수 좋은 날",
+        "authorName": "현진건",
+        "matchedGenreCodes": ["CLASSIC"]
+      }
+    ],
+    "reasonType": "PREGENERATED_BOOK_AI_TAG",
+    "generatedAt": "2026-07-02T04:21:00.000Z"
+  },
+  "timestamp": "2026-07-02T04:21:00.100Z"
+}
+```
+
+#### 프론트 활용 포인트
+- `personalizedReasonText`: UI에서 바로 보여줄 메인 추천 문구
+- `aiReasonText`: 별도 서브 설명/툴팁으로 사용 가능
+- `matchedGenres`: 왜 추천됐는지 태그 형태로 표시 가능
+- `recentReadBooks`: "최근 읽은 책 기반 추천" UI 구성 가능
+
+---
+
 ## 7. 관리자 도서 Import API
 
 > 일반 사용자 프론트에서는 보통 직접 호출하지 않고, 운영/관리자 도구에서만 사용 권장
@@ -647,6 +731,7 @@ X-USER-ID: 1
 ### 책 목록/상세
 1. `GET /api/v1/books`
 2. 카드 클릭 시 `GET /api/v1/books/{bookId}`
+3. 상세 화면에서는 `displayDescription`을 우선 렌더링
 
 ### 읽기 이벤트 저장
 1. 상세 화면 진입/이탈 시 `POST /api/v1/interactions`
@@ -681,4 +766,7 @@ X-USER-ID: 1
 ### import status
 - `CREATED`
 - `UPDATED`
+
+
+
 

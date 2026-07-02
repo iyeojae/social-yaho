@@ -13,6 +13,7 @@ import org.huss.socialsaas.literature.repository.LiteratureWorkGenreRepository;
 import org.huss.socialsaas.literature.repository.LiteratureWorkRepository;
 import org.huss.socialsaas.preference.repository.UserGenrePreferenceRepository;
 import org.huss.socialsaas.recommendation.dto.response.RecommendationFeedResponse;
+import org.huss.socialsaas.recommendation.dto.response.RecommendationReasonResponse;
 import org.huss.socialsaas.recommendation.service.RecommendationService;
 import org.huss.socialsaas.user.dto.request.CreateUserRequest;
 import org.huss.socialsaas.user.dto.response.UserProfileResponse;
@@ -172,5 +173,26 @@ class RecommendationServiceIntegrationTest {
         assertFalse(third.cached());
         assertEquals(1, third.items().size());
     }
+
+    @Test
+    void getRecommendationReasonBuildsPersonalizedTextFromRecentReadsAndAiTag() {
+        RecommendationReasonResponse response = recommendationService.getRecommendationReason(userId, recommendedClassicBookId);
+
+        assertEquals(userId, response.userId());
+        assertEquals(recommendedClassicBookId, response.bookId());
+        assertEquals("메밀꽃 필 무렵", response.bookTitle());
+        assertTrue(response.personalizedReasonText().contains("운수 좋은 날"));
+        assertTrue(response.personalizedReasonText().contains("메밀꽃 필 무렵"));
+        assertTrue(response.personalizedReasonText().contains("고전문학"));
+        assertEquals("최근 읽은 고전문학과 결이 비슷해 추천합니다.", response.aiReasonText());
+        assertTrue(response.keywordTags().contains("classic"));
+        assertEquals("PREGENERATED_BOOK_AI_TAG", response.reasonType());
+        assertEquals(1, response.matchedGenres().size());
+        assertEquals("CLASSIC", response.matchedGenres().get(0).code());
+        assertEquals(1, response.recentReadBooks().size());
+        assertEquals(recentClassicBookId, response.recentReadBooks().get(0).bookId());
+        assertTrue(response.recentReadBooks().get(0).matchedGenreCodes().contains("CLASSIC"));
+    }
 }
+
 
