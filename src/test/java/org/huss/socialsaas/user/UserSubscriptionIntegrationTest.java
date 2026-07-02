@@ -63,7 +63,7 @@ class UserSubscriptionIntegrationTest {
     @Test
     void createUserAndToggleMembership() {
         UserProfileResponse createdUser = userService.createUser(
-                new CreateUserRequest("reader1@example.com", "password123", "reader1", null)
+                new CreateUserRequest("reader1@example.com", "password123", "reader1", null, null, null)
         );
 
         assertEquals("reader1@example.com", createdUser.email());
@@ -89,7 +89,14 @@ class UserSubscriptionIntegrationTest {
     @Test
     void createUserWithSurveyInitializesExplicitGenrePreference() {
         UserProfileResponse createdUser = userService.createUser(
-                new CreateUserRequest("reader-survey@example.com", "password123", "reader-survey", List.of("CLASSIC"))
+                new CreateUserRequest(
+                        "reader-survey@example.com",
+                        "password123",
+                        "reader-survey",
+                        List.of("CLASSIC"),
+                        null,
+                        null
+                )
         );
 
         List<UserGenrePreference> preferences = userGenrePreferenceRepository
@@ -100,6 +107,29 @@ class UserSubscriptionIntegrationTest {
         assertEquals(10L, preferences.get(0).getExplicitScore());
         assertEquals(0L, preferences.get(0).getImplicitScore());
         assertEquals(10L, preferences.get(0).getTotalScore());
+    }
+
+    @Test
+    void createUserWithPsychologicalSurveyInfersGenrePreference() {
+        UserProfileResponse createdUser = userService.createUser(
+                new CreateUserRequest(
+                        "reader-psychology@example.com",
+                        "password123",
+                        "reader-psychology",
+                        null,
+                        "I am most drawn to quiet, lyrical stories that stay with me emotionally.",
+                        "A reflective poetry film about grief and memory stayed with me for weeks."
+                )
+        );
+
+        List<UserGenrePreference> preferences = userGenrePreferenceRepository
+                .findTop5ByUserIdOrderByTotalScoreDescUpdatedAtDesc(createdUser.id());
+
+        assertFalse(preferences.isEmpty());
+        assertEquals("CLASSIC", preferences.get(0).getGenre().getCode());
+        assertEquals(6L, preferences.get(0).getExplicitScore());
+        assertEquals(0L, preferences.get(0).getImplicitScore());
+        assertEquals(6L, preferences.get(0).getTotalScore());
     }
 }
 

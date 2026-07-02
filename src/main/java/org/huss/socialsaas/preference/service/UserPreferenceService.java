@@ -22,25 +22,45 @@ import java.util.Set;
 @Transactional(readOnly = true)
 public class UserPreferenceService {
 
-    private static final long SURVEY_EXPLICIT_SCORE = 10L;
+    private static final long DIRECT_SURVEY_EXPLICIT_SCORE = 10L;
+    private static final long INFERRED_SURVEY_EXPLICIT_SCORE = 6L;
 
     private final UserGenrePreferenceRepository userGenrePreferenceRepository;
     private final GenreRepository genreRepository;
 
     @Transactional
     public void initializePreferencesFromSurvey(User user, List<String> preferredGenreCodes) {
-        if (preferredGenreCodes == null || preferredGenreCodes.isEmpty()) {
+        initializePreferencesFromSurvey(user, preferredGenreCodes, List.of());
+    }
+
+    @Transactional
+    public void initializePreferencesFromSurvey(
+            User user,
+            List<String> selectedGenreCodes,
+            List<String> inferredGenreCodes
+    ) {
+        if ((selectedGenreCodes == null || selectedGenreCodes.isEmpty())
+                && (inferredGenreCodes == null || inferredGenreCodes.isEmpty())) {
             return;
         }
 
-        Set<String> normalizedCodes = preferredGenreCodes.stream()
+        applySurveyCodes(user, selectedGenreCodes, DIRECT_SURVEY_EXPLICIT_SCORE);
+        applySurveyCodes(user, inferredGenreCodes, INFERRED_SURVEY_EXPLICIT_SCORE);
+    }
+
+    private void applySurveyCodes(User user, List<String> genreCodes, long score) {
+        if (genreCodes == null || genreCodes.isEmpty()) {
+            return;
+        }
+
+        Set<String> normalizedCodes = genreCodes.stream()
                 .filter(code -> code != null && !code.isBlank())
                 .map(code -> code.trim().toUpperCase(Locale.ROOT))
                 .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
 
         for (String genreCode : normalizedCodes) {
             genreRepository.findByCodeIgnoreCase(genreCode)
-                    .ifPresent(genre -> upsertSurveyPreference(user, genre));
+                    .ifPresent(genre -> upsertSurveyPreference(user, genre, score));
         }
     }
 
@@ -59,10 +79,10 @@ public class UserPreferenceService {
         }
     }
 
-    private void upsertSurveyPreference(User user, Genre genre) {
+    private void upsertSurveyPreference(User user, Genre genre, long score) {
         UserGenrePreference preference = userGenrePreferenceRepository.findByUserAndGenre(user, genre)
                 .orElseGet(() -> userGenrePreferenceRepository.save(UserGenrePreference.create(user, genre)));
-        preference.addExplicitScore(SURVEY_EXPLICIT_SCORE);
+        preference.addExplicitScore(score);
     }
 
     private long resolveImplicitScore(InteractionType interactionType) {

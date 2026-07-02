@@ -20,6 +20,12 @@ public record CreateUserRequest(
         String nickname,
 
         @Size(max = 5, message = "선호 장르는 최대 5개까지 선택할 수 있습니다.")
-        List<@NotBlank(message = "선호 장르 코드는 비어 있을 수 없습니다.") String> preferredGenreCodes
+        List<@NotBlank(message = "선호 장르 코드는 비어 있을 수 없습니다.") String> preferredGenreCodes,
+
+        @Size(max = 1000, message = "storyPreferenceAnswer는 1000자 이하로 입력해주세요.")
+        String storyPreferenceAnswer,
+
+        @Size(max = 1000, message = "recentFavoriteContentAnswer는 1000자 이하로 입력해주세요.")
+        String recentFavoriteContentAnswer
 ) {
 }

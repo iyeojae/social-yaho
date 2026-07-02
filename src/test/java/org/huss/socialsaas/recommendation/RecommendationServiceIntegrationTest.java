@@ -86,7 +86,14 @@ class RecommendationServiceIntegrationTest {
                 .build());
 
         UserProfileResponse user = userService.createUser(
-                new CreateUserRequest("reader3@example.com", "password123", "reader3", List.of("CLASSIC"))
+                new CreateUserRequest(
+                        "reader3@example.com",
+                        "password123",
+                        "reader3",
+                        List.of("CLASSIC"),
+                        "I am drawn to reflective stories about ordinary people carrying quiet emotional weight.",
+                        "A bittersweet human drama about memory and longing stayed with me recently."
+                )
         );
         userId = user.id();
 
@@ -156,7 +163,7 @@ class RecommendationServiceIntegrationTest {
     void getFeedCachesAndRefreshesRecommendationFeed() {
         RecommendationFeedResponse first = recommendationService.getFeed(userId, 10);
         assertFalse(first.cached());
-        assertEquals(1, first.items().size());
+        assertTrue(first.items().size() >= 1);
         assertEquals(recommendedClassicBookId, first.items().get(0).bookId());
         assertTrue(first.items().get(0).genres().contains("CLASSIC"));
         assertEquals("PREGENERATED_BOOK_AI_TAG", first.items().get(0).sourceSignals().reasonType());

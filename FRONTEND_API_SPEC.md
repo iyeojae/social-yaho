@@ -96,7 +96,9 @@ X-USER-ID: {userId}
   "email": "user@example.com",
   "password": "password1234",
   "nickname": "miyo",
-  "preferredGenreCodes": ["CLASSIC", "POETRY"]
+  "preferredGenreCodes": ["CLASSIC", "POETRY"],
+  "storyPreferenceAnswer": "I am most drawn to bittersweet stories about memory, longing, and quiet emotional change.",
+  "recentFavoriteContentAnswer": "A reflective drama about grief and family stayed with me for a long time."
 }
 ```
 
@@ -105,6 +107,8 @@ X-USER-ID: {userId}
 - `password`: 필수, 8~100자
 - `nickname`: 필수, 최대 100자
 - `preferredGenreCodes`: optional, 최대 5개
+- `storyPreferenceAnswer`: optional, 최대 1000자
+- `recentFavoriteContentAnswer`: optional, 최대 1000자
 
 #### Response (`201 Created`)
 ```json
@@ -125,8 +129,12 @@ X-USER-ID: {userId}
 ```
 
 #### 프론트 참고
-- 회원가입 시 간단한 설문(선호 장르 선택)을 같이 보내면 초기 추천 품질이 좋아집니다.
+- 회원가입 시 온보딩 설문을 같이 보내면 초기 추천 품질이 좋아집니다.
 - `preferredGenreCodes`는 `GET /api/v1/genres`로 받은 `code` 값을 사용하면 됩니다.
+- `storyPreferenceAnswer`는 영어 질문 **"What kind of story pulls at your heart the most?"** 에 대한 서술형 답변입니다.
+- `recentFavoriteContentAnswer`는 영어 질문 **"Tell us about a recent book, film, or drama that stayed with you."** 에 대한 서술형 답변입니다.
+- 백엔드는 직접 선택한 장르 + 서술형 답변을 함께 분석해서 초기 장르 점수를 만듭니다.
+- 서술형 답변은 OpenAI를 사용해 기존 장르 코드로 추론되며, 실패하면 내부 fallback 규칙으로 장르를 유추합니다.
 - 설문 점수는 초기값일 뿐이고, 이후 `POST /api/v1/interactions` 데이터가 계속 누적되면서 추천이 보정됩니다.
 
 ---
