@@ -8,6 +8,7 @@ import org.huss.socialsaas.literature.entity.LiteratureWork;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
 
@@ -48,7 +49,9 @@ public class BookAiSummaryService {
     @Value("${app.ai.openai.summary-temperature:0.4}")
     private double temperature;
 
-    @Transactional
+    // Callers (e.g. LiteratureService detail lookup) run in a readOnly
+    // transaction; open a fresh writable one so the summary can be saved.
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Optional<String> getOrGenerateSummary(LiteratureWork literatureWork) {
         Optional<BookAiTag> existing = bookAiTagRepository.findByLiteratureWorkId(literatureWork.getId());
         if (existing.isPresent()) {
