@@ -1,0 +1,40 @@
+version: '3.8'
+services:
+  app:
+    build: .  # 현재 폴더의 Dockerfile을 읽어서 빌드
+    container_name: klit-spring-app
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mysql
+      - redis
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/klit_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_DATA_REDIS_HOST: redis
+      APP_BOOK_IMPORT_PATH: /data/md_books
+      APP_BOOK_IMPORT_XLSX_PATH: /data/import/translated_books.xlsx
+    volumes:
+      - ./md_books:/data/md_books:ro
+      - ./TRANSLATEDBOOKS_20260702032206.xlsx:/data/import/translated_books.xlsx:ro
+
+  mysql:
+    image: mysql:8.0
+    container_name: klit-mysql
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: klit_db
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  redis:
+    image: redis:alpine
+    container_name: klit-redis
+    ports:
+      - "6379:6379"
+
+volumes:
+  mysql_data:
