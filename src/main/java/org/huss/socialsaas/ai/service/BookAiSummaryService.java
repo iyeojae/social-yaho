@@ -15,11 +15,16 @@ import org.springframework.web.client.RestClient;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class BookAiSummaryService {
+
+    private static final Pattern PARENTHESIS_PATTERN = Pattern.compile("\\([^()]*\\)");
+    private static final Pattern HANGUL_PATTERN = Pattern.compile("[가-힣]");
 
     private static final String SYSTEM_PROMPT = """
             You are a Korean literature metadata assistant.
@@ -29,6 +34,8 @@ public class BookAiSummaryService {
             Do not invent plot details, awards, historical facts, or publication facts that are not clearly inferable from the metadata.
             If metadata is limited, describe the likely literary context conservatively and explicitly avoid overclaiming.
             You may mention original titles or author names in their source language inside parentheses when helpful, but the explanation itself must remain English.
+            Never insert standalone Hangul words into otherwise English sentences.
+            If you include Korean text, only place it inside parentheses immediately following the relevant romanized or translated title/author name.
             Output plain English text only.
             """;
 
@@ -55,8 +62,11 @@ public class BookAiSummaryService {
     public Optional<String> getOrGenerateSummary(LiteratureWork literatureWork) {
         Optional<BookAiTag> existing = bookAiTagRepository.findByLiteratureWorkId(literatureWork.getId());
         if (existing.isPresent()) {
-            String savedSummary = normalize(existing.get().getLlmSummary());
+            String savedSummary = sanitizeSummary(normalize(existing.get().getLlmSummary()));
             if (savedSummary != null && shouldReuseSummary(savedSummary)) {
+                if (!savedSummary.equals(existing.get().getLlmSummary())) {
+                    existing.get().updateLlmSummary(savedSummary, Instant.now());
+                }
                 return Optional.of(savedSummary);
             }
         }
@@ -66,7 +76,7 @@ public class BookAiSummaryService {
         }
 
         try {
-            String generatedSummary = normalize(requestSummaryFromOpenAi(literatureWork));
+            String generatedSummary = sanitizeSummary(normalize(requestSummaryFromOpenAi(literatureWork)));
             if (generatedSummary == null) {
                 return Optional.empty();
             }
@@ -171,11 +181,66 @@ public class BookAiSummaryService {
     }
 
     private boolean shouldReuseSummary(String savedSummary) {
-        return !containsHangul(savedSummary);
+        return !containsDisallowedHangul(savedSummary);
+    }
+
+    private String sanitizeSummary(String value) {
+        String normalized = normalize(value);
+        if (normalized == null) {
+            return null;
+        }
+
+        StringBuilder sanitized = new StringBuilder();
+        Matcher matcher = PARENTHESIS_PATTERN.matcher(normalized);
+        int lastIndex = 0;
+        while (matcher.find()) {
+            sanitized.append(removeHangulOutsideParentheses(normalized.substring(lastIndex, matcher.start())));
+            sanitized.append(cleanParentheticalChunk(matcher.group()));
+            lastIndex = matcher.end();
+        }
+        sanitized.append(removeHangulOutsideParentheses(normalized.substring(lastIndex)));
+
+        return cleanupWhitespaceAndPunctuation(sanitized.toString());
+    }
+
+    private String removeHangulOutsideParentheses(String value) {
+        return value.replaceAll("[가-힣]+", " ");
+    }
+
+    private String cleanParentheticalChunk(String value) {
+        String inner = value.substring(1, value.length() - 1).trim();
+        if (inner.isBlank()) {
+            return "";
+        }
+        if (containsHangul(inner)) {
+            return "(" + inner + ")";
+        }
+        return "(" + cleanupWhitespaceAndPunctuation(inner) + ")";
+    }
+
+    private String cleanupWhitespaceAndPunctuation(String value) {
+        String cleaned = value
+                .replaceAll("\\s+", " ")
+                .replaceAll("\\s+([,.;:!?])", "$1")
+                .replaceAll("([(])\\s+", "$1")
+                .replaceAll("\\s+([)])", "$1")
+                .replaceAll("([,.;:!?]){2,}", "$1")
+                .trim();
+
+        return cleaned.isBlank() ? null : cleaned;
+    }
+
+    private boolean containsDisallowedHangul(String value) {
+        if (value == null) {
+            return false;
+        }
+
+        String withoutParentheses = PARENTHESIS_PATTERN.matcher(value).replaceAll(" ");
+        return containsHangul(withoutParentheses);
     }
 
     private boolean containsHangul(String value) {
-        return value != null && value.matches(".*[가-힣].*");
+        return value != null && HANGUL_PATTERN.matcher(value).find();
     }
 
     private record ChatCompletionRequest(

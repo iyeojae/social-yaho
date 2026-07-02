@@ -24,6 +24,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -148,6 +149,25 @@ class LiteratureControllerIntegrationTest {
         assertEquals("AI_GENERATED_SUMMARY", detail.descriptionSource());
         assertEquals("XLSX_METADATA", detail.sourceType());
         assertFalse(detail.contentAvailable());
+    }
+
+    @Test
+    void getBookSanitizesStrayHangulFromAiSummaryButKeepsIntentionalParentheticalKorean() {
+        BookAiTag savedTag = bookAiTagRepository.findByLiteratureWorkId(xlsxBookId).orElseThrow();
+        savedTag.updateLlmSummary(
+                "Han Kang 한강 is one of the most internationally recognized Korean authors, and this edition introduces readers to her literary voice through a thoughtfully presented translation. The book also helps situate the author within modern Korean literature and preserves the familiar author rendering Han Kang (한강).",
+                Instant.now()
+        );
+        bookAiTagRepository.saveAndFlush(savedTag);
+
+        LiteratureDetailResponse detail = literatureService.getBook(xlsxBookId);
+
+        assertEquals(
+                "Han Kang is one of the most internationally recognized Korean authors, and this edition introduces readers to her literary voice through a thoughtfully presented translation. The book also helps situate the author within modern Korean literature and preserves the familiar author rendering Han Kang (한강).",
+                detail.displayDescription()
+        );
+        assertTrue(detail.displayDescription().contains("Han Kang (한강)"));
+        assertFalse(detail.displayDescription().contains("Han Kang 한강 is"));
     }
 }
 

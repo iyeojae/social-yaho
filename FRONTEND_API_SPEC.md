@@ -450,6 +450,51 @@ X-USER-ID: 1
 - 이 API 호출 시 사용자 선호 장르 점수도 내부적으로 반영됩니다.
 - 이 API 호출 시 추천 캐시도 내부적으로 무효화됩니다.
 
+#### 좋아요/좋아요 취소 예시
+
+좋아요 추가:
+```json
+{
+  "bookId": 15054,
+  "interactionType": "LIKE",
+  "sourceScreen": "book-detail"
+}
+```
+
+좋아요 취소:
+```json
+{
+  "bookId": 15054,
+  "interactionType": "UNLIKE",
+  "sourceScreen": "book-detail"
+}
+```
+
+#### 북마크/북마크 취소 예시
+
+북마크 추가:
+```json
+{
+  "bookId": 15054,
+  "interactionType": "BOOKMARK",
+  "sourceScreen": "book-detail"
+}
+```
+
+북마크 취소:
+```json
+{
+  "bookId": 15054,
+  "interactionType": "UNBOOKMARK",
+  "sourceScreen": "book-detail"
+}
+```
+
+#### 프론트 구현 팁
+- 좋아요 버튼 클릭 시 `LIKE`, 취소 시 `UNLIKE`를 보내면 됩니다.
+- 북마크 버튼 클릭 시 `BOOKMARK`, 취소 시 `UNBOOKMARK`를 보내면 됩니다.
+- 현재 API는 상호작용 이벤트 저장 방식이라, 프론트에서 버튼 상태를 따로 관리하거나 별도 상태 조회 API가 필요하면 추가 구현이 필요할 수 있습니다.
+
 ---
 
 ## 6. 추천 API

@@ -35,7 +35,9 @@ public class SecurityConfig {
                 "http://localhost:5174",
                 "http://127.0.0.1:5174",
                 "http://u-tory.cloud",
-                "https://u-tory.cloud"
+                "https://u-tory.cloud",
+                "https://www.u-tory.cloud",
+                "http://www.u-tory.cloud"
         ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
